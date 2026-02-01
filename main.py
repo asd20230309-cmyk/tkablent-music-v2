@@ -7,85 +7,106 @@ from threading import Thread
 import os
 import asyncio
 
-# --- 1. 防休眠網頁 ---
+# --- 第一部分：防休眠網頁系統 (給 UptimeRobot 監控用) ---
 app = Flask('')
+
 @app.route('/')
-def home(): return "Music Bot is Alive!"
+def home():
+    return "Music Bot Status: Online"
 
-def run_web(): app.run(host='0.0.0.0', port=8080)
-def keep_alive(): Thread(target=run_web).start()
+def run_web_server():
+    # Replit 必須使用 8080 端口
+    app.run(host='0.0.0.0', port=8080)
 
-# --- 2. 機器人核心 ---
-class MusicBot(commands.Bot):
+def keep_alive():
+    # 讓網頁伺服器在背景執行，不干擾機器人
+    t = Thread(target=run_web_server)
+    t.start()
+
+# --- 第二部分：機器人核心設定 ---
+class MyMusicBot(commands.Bot):
     def __init__(self):
         intents = discord.Intents.default()
-        intents.message_content = True
-        intents.voice_states = True
+        intents.message_content = True  # 讀取訊息內容權限
+        intents.voice_states = True     # 語音連線權限
         super().__init__(command_prefix="!", intents=intents)
 
     async def setup_hook(self):
+        # 啟動時同步斜線指令到 Discord
         await self.tree.sync()
-        print(f"✅ 斜線指令同步完成")
+        print("✅ 斜線指令選單同步完成")
 
-bot = MusicBot()
+    async def on_ready(self):
+        print(f"✅ 機器人 {self.user} 已成功上線並登入！")
 
-# --- 3. 音樂指令集 (全部回歸！) ---
+bot = MyMusicBot()
 
-@bot.tree.command(name="join", description="召喚機器人進入語音頻道")
+# --- 第三部分：音樂功能指令區 ---
+
+@bot.tree.command(name="join", description="將機器人召喚至您的語音頻道")
 async def join(interaction: discord.Interaction):
     if interaction.user.voice:
-        await interaction.user.voice.channel.connect()
-        await interaction.response.send_message("🎵 | 已就位，隨時可以播放音樂！")
+        channel = interaction.user.voice.channel
+        await channel.connect()
+        await interaction.response.send_message("🎶 | 我來了！準備好播放音樂了。")
     else:
-        await interaction.response.send_message("❌ | 你必須先加入語音頻道", ephemeral=True)
+        await interaction.response.send_message("❌ | 你必須先進入一個語音頻道！", ephemeral=True)
 
-@bot.tree.command(name="play", description="播放音樂 (請輸入歌曲名稱或網址)")
-@app_commands.describe(search="歌曲名稱或 YouTube 網址")
+@bot.tree.command(name="play", description="查詢並播放音樂 (YouTube)")
+@app_commands.describe(search="請輸入歌名或 YouTube 網址")
 async def play(interaction: discord.Interaction, search: str):
-    await interaction.response.defer() # 搜尋需要時間，先讓 Discord 等一下
-    # 注意：這裡需要配合 wavelink 或 yt-dlp 邏輯，目前先以基礎提示替代
-    # 建議後續整合 wavelink 實現高品質播放
-    await interaction.followup.send(f"🔍 | 正在搜尋: **{search}** (此功能需配置 Lavalink 伺服器)")
+    # 解決 10062 錯誤：立即讓 Discord 進入「思考中」狀態，爭取更多時間
+    await interaction.response.defer(thinking=True)
+    
+    # 這裡暫時模擬查詢邏輯，實際播放需配置音訊庫 (如 yt-dlp)
+    await asyncio.sleep(2) 
+    
+    # 使用 followup 發送查詢結果
+    await interaction.followup.send(f"🔍 | 正在搜尋：**{search}**\n⚠️ | 播放引擎載入中，請稍候。")
 
-@bot.tree.command(name="pause", description="暫停音樂")
+@bot.tree.command(name="pause", description="暫停目前播放的音樂")
 async def pause(interaction: discord.Interaction):
     vc = interaction.guild.voice_client
     if vc and vc.is_playing():
         vc.pause()
-        await interaction.response.send_message("⏸️ | 音樂已暫停")
+        await interaction.response.send_message("⏸️ | 音樂已暫停。")
     else:
-        await interaction.response.send_message("❌ | 目前沒有音樂在播放", ephemeral=True)
+        await interaction.response.send_message("❌ | 目前沒有音樂正在播放。", ephemeral=True)
 
-@bot.tree.command(name="resume", description="恢復播放")
+@bot.tree.command(name="resume", description="恢復播放暫停中的音樂")
 async def resume(interaction: discord.Interaction):
     vc = interaction.guild.voice_client
     if vc and vc.is_paused():
         vc.resume()
-        await interaction.response.send_message("▶️ | 繼續播放音樂")
+        await interaction.response.send_message("▶️ | 音樂已恢復播放。")
     else:
-        await interaction.response.send_message("❌ | 音樂並未處於暫停狀態", ephemeral=True)
+        await interaction.response.send_message("❌ | 沒有被暫停的音樂。", ephemeral=True)
 
-@bot.tree.command(name="stop", description="停止播放並清空隊列")
-async def stop(interaction: discord.Interaction):
-    vc = interaction.guild.voice_client
-    if vc:
-        await vc.disconnect()
-        await interaction.response.send_message("⏹️ | 已停止播放並離開頻道")
+@bot.tree.command(name="leave", description="讓機器人離開當前語音頻道")
+async def leave(interaction: discord.Interaction):
+    if interaction.guild.voice_client:
+        await interaction.guild.voice_client.disconnect()
+        await interaction.response.send_message("📤 | 已退出語音頻道，下次見！")
     else:
-        await interaction.response.send_message("❌ | 我目前不在語音頻道中", ephemeral=True)
+        await interaction.response.send_message("❌ | 我目前不在任何頻道中。", ephemeral=True)
 
-# 0---------1---------2---------3---------4---------5---------6---------7---------8
+# --- 第四部分：啟動入口 ---
 if __name__ == "__main__":
+    # 1. 啟動防休眠網頁
     keep_alive()
     
-    # 從 Replit Secrets 抓取鑰匙
+    # 2. 從 Replit Secrets 抓取 Token (請確保 Key 叫 DISCORD_TOKEN)
     TOKEN = os.getenv("DISCORD_TOKEN")
     
     if TOKEN:
-        bot.run(TOKEN)
+        try:
+            bot.run(TOKEN)
+        except Exception as e:
+            print(f"❌ 啟動錯誤：{e}")
     else:
-        print("X 請設置 DISCORD_TOKEN 環境變數")
+        print("❌ 錯誤：找不到 DISCORD_TOKEN，請檢查 Replit 的 Secrets 設定！")
 # 0---------1---------2---------3---------4---------5---------6---------7---------8
+
 
 
 
