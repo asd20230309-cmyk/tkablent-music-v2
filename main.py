@@ -74,13 +74,19 @@ async def stop(interaction: discord.Interaction):
     else:
         await interaction.response.send_message("❌ | 我目前不在語音頻道中", ephemeral=True)
 
-# --- 4. 啟動 ---
+# 0---------1---------2---------3---------4---------5---------6---------7---------8
 if __name__ == "__main__":
     keep_alive()
-    # 請填入您重設後的 Token
-    TOKEN = "MTQ2NDcwMDE4MDg2MjYwMzI2NA.G3r5gj.HsF5ZHtabgjYaTKcFtHqCu32nYH1Dv3Lt6PSoY"
-    bot.run(TOKEN)
+    
+    # 從 Replit Secrets 抓取鑰匙
+    TOKEN = os.getenv("DISCORD_TOKEN")
+    
+    if TOKEN:
+        bot.run(TOKEN)
+    else:
+        print("X 請設置 DISCORD_TOKEN 環境變數")
 # 0---------1---------2---------3---------4---------5---------6---------7---------8
+
 
 
 
