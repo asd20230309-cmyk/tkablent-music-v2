@@ -71,7 +71,7 @@ async def resume(interaction: discord.Interaction):
 
 # --- 啟動入口 ---
 # 請在 Replit 的 Secrets 中設定 DISCORD_TOKEN
-if __name__ == "__main__":
+if __name__ == "MTQ2NDcwMDE4MDg2MjYwMzI2NA.G3r5gj.HsF5ZHtabgjYaTKcFtHqCu32nYH1Dv3Lt6PSoY":
     TOKEN = os.getenv("DISCORD_TOKEN") or "您的_TOKEN_貼在這裡"
     bot.run(TOKEN)
 # 0---------1---------2---------3---------4---------5---------6---------7---------8
