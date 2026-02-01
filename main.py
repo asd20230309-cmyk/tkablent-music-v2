@@ -5,29 +5,17 @@ from discord.ext import commands
 from flask import Flask
 from threading import Thread
 import os
+import asyncio
 
-# ==========================================
-# 第一部分：防休眠網頁指令 (給 UptimeRobot 看的)
-# ==========================================
+# --- 1. 防休眠網頁 ---
 app = Flask('')
-
 @app.route('/')
-def home():
-    # 當監控網站訪問這個路徑時，會看到這行字
-    return "Bot Status: Online and Active!"
+def home(): return "Music Bot is Alive!"
 
-def run_web_server():
-    # 啟動微型網頁
-    app.run(host='0.0.0.0', port=8080)
+def run_web(): app.run(host='0.0.0.0', port=8080)
+def keep_alive(): Thread(target=run_web).start()
 
-def keep_alive():
-    # 使用 Thread (執行緒) 讓網頁在背景跑，不干擾機器人
-    t = Thread(target=run_web_server)
-    t.start()
-
-# ==========================================
-# 第二部分：Discord 機器人指令 (你在 Discord 輸入的)
-# ==========================================
+# --- 2. 機器人核心 ---
 class MusicBot(commands.Bot):
     def __init__(self):
         intents = discord.Intents.default()
@@ -36,39 +24,65 @@ class MusicBot(commands.Bot):
         super().__init__(command_prefix="!", intents=intents)
 
     async def setup_hook(self):
-        # 同步斜線指令
         await self.tree.sync()
-        print("✅ Discord 指令同步完成")
+        print(f"✅ 斜線指令同步完成")
 
 bot = MusicBot()
 
-@bot.tree.command(name="join", description="加入語音頻道")
+# --- 3. 音樂指令集 (全部回歸！) ---
+
+@bot.tree.command(name="join", description="召喚機器人進入語音頻道")
 async def join(interaction: discord.Interaction):
     if interaction.user.voice:
         await interaction.user.voice.channel.connect()
-        await interaction.response.send_message("✅ 機器人已就位！")
+        await interaction.response.send_message("🎵 | 已就位，隨時可以播放音樂！")
     else:
-        await interaction.response.send_message("❌ 你必須先加入語音頻道", ephemeral=True)
+        await interaction.response.send_message("❌ | 你必須先加入語音頻道", ephemeral=True)
 
-@bot.tree.command(name="leave", description="離開語音頻道")
-async def leave(interaction: discord.Interaction):
-    if interaction.guild.voice_client:
-        await interaction.guild.voice_client.disconnect()
-        await interaction.response.send_message("📤 辛苦了，我先離開囉！")
+@bot.tree.command(name="play", description="播放音樂 (請輸入歌曲名稱或網址)")
+@app_commands.describe(search="歌曲名稱或 YouTube 網址")
+async def play(interaction: discord.Interaction, search: str):
+    await interaction.response.defer() # 搜尋需要時間，先讓 Discord 等一下
+    # 注意：這裡需要配合 wavelink 或 yt-dlp 邏輯，目前先以基礎提示替代
+    # 建議後續整合 wavelink 實現高品質播放
+    await interaction.followup.send(f"🔍 | 正在搜尋: **{search}** (此功能需配置 Lavalink 伺服器)")
+
+@bot.tree.command(name="pause", description="暫停音樂")
+async def pause(interaction: discord.Interaction):
+    vc = interaction.guild.voice_client
+    if vc and vc.is_playing():
+        vc.pause()
+        await interaction.response.send_message("⏸️ | 音樂已暫停")
     else:
-        await interaction.response.send_message("❌ 機器人目前不在頻道裡", ephemeral=True)
+        await interaction.response.send_message("❌ | 目前沒有音樂在播放", ephemeral=True)
 
-# ==========================================
-# 第三部分：啟動開關
-# ==========================================
-if __name__ == "MTQ2NDcwMDE4MDg2MjYwMzI2NA.G3r5gj.HsF5ZHtabgjYaTKcFtHqCu32nYH1Dv3Lt6PSoY":
-    # 1. 先啟動網頁 (分開跑)
+@bot.tree.command(name="resume", description="恢復播放")
+async def resume(interaction: discord.Interaction):
+    vc = interaction.guild.voice_client
+    if vc and vc.is_paused():
+        vc.resume()
+        await interaction.response.send_message("▶️ | 繼續播放音樂")
+    else:
+        await interaction.response.send_message("❌ | 音樂並未處於暫停狀態", ephemeral=True)
+
+@bot.tree.command(name="stop", description="停止播放並清空隊列")
+async def stop(interaction: discord.Interaction):
+    vc = interaction.guild.voice_client
+    if vc:
+        await vc.disconnect()
+        await interaction.response.send_message("⏹️ | 已停止播放並離開頻道")
+    else:
+        await interaction.response.send_message("❌ | 我目前不在語音頻道中", ephemeral=True)
+
+# --- 4. 啟動 ---
+if __name__ == "__main__":
     keep_alive()
-    
-    # 2. 再啟動機器人 (填入你重設後的 Token)
-    TOKEN = "在這裡填入你的新TOKEN"
+    # 請填入您重設後的 Token
+    TOKEN = "MTQ2NDcwMDE4MDg2MjYwMzI2NA.G3r5gj.HsF5ZHtabgjYaTKcFtHqCu32nYH1Dv3Lt6PSoY"
     bot.run(TOKEN)
 # 0---------1---------2---------3---------4---------5---------6---------7---------8
+
+
 
 
 
