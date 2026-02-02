@@ -1,5 +1,5 @@
 # 0---------1---------2---------3---------4---------5---------6---------7---------8
-import discord
+    import discord
 from discord import app_commands
 from discord.ext import commands
 from flask import Flask
@@ -19,11 +19,9 @@ def run_web_server():
     app.run(host='0.0.0.0', port=8080)
 
 def keep_alive():
-    # 讓網頁伺服器在背景執行，不干擾機器人
     t = Thread(target=run_web_server)
     t.start()
 
-# --- 第二部分：機器人核心設定 ---
 class MyMusicBot(commands.Bot):
     def __init__(self):
         intents = discord.Intents.default()
@@ -34,7 +32,7 @@ class MyMusicBot(commands.Bot):
     async def setup_hook(self):
         # 啟動時同步斜線指令到 Discord
         await self.tree.sync()
-        print("✅ 斜線指令選單同步完成")
+        print("✅ 同步完成")
 
     async def on_ready(self):
         print(f"✅ 機器人 {self.user} 已成功上線並登入！")
